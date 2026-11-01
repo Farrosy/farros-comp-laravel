@@ -11,18 +11,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\OrderService;
 use Illuminate\View\View;
-use Midtrans\Config;
 use Midtrans\Snap;
 
 class OrderController extends Controller
 {
-    public function __construct()
+    public function __construct(private readonly OrderService $orders)
     {
-        Config::$serverKey = (string) config('services.midtrans.server_key');
-        Config::$isProduction = (bool) config('services.midtrans.is_production');
-        Config::$isSanitized = true;
-        Config::$is3ds = true;
+        // OrderService sudah mengatur konfigurasi Midtrans (server key, mode, 3DS).
     }
 
     public function index(): View
@@ -56,7 +53,7 @@ class OrderController extends Controller
                     'order_code' => 'FC-'.now()->format('YmdHis').'-'.Str::upper(Str::random(8)),
                     'total_amount' => (int) $currentProduct->price,
                     'shipping_address' => $user->address ?: 'Alamat belum diatur, silakan konfirmasi via CS.',
-                    'status' => 'pending',
+                    'status' => Order::STATUS_PENDING,
                 ]);
 
                 OrderItem::create([
@@ -140,60 +137,84 @@ class OrderController extends Controller
             return response()->json(['status' => 'success', 'message' => 'Test notification received']);
         }
 
-        return DB::transaction(function () use ($payload): JsonResponse {
-            $order = Order::query()
-                ->where('order_code', $payload['order_id'])
-                ->lockForUpdate()
-                ->first();
+        $order = Order::query()->where('order_code', $payload['order_id'])->first();
 
-            if (!$order) {
-                return response()->json(['message' => 'Order not found'], 404);
-            }
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
 
-            $grossAmountCents = (int) round((float) $payload['gross_amount'] * 100);
-            $orderAmountCents = (int) round((float) $order->total_amount * 100);
-            if ($grossAmountCents !== $orderAmountCents) {
-                return response()->json(['message' => 'Amount mismatch'], 403);
-            }
+        $result = $this->orders->applyPaymentStatus(
+            $order,
+            $payload['transaction_status'],
+            $payload['fraud_status'] ?? null,
+            $payload['gross_amount'],
+            $request->input('payment_type')
+        );
 
-            $transactionStatus = $payload['transaction_status'];
-            $isSuccessfulPayment = $transactionStatus === 'settlement'
-                || ($transactionStatus === 'capture' && ($payload['fraud_status'] ?? null) === 'accept');
-
-            if ($order->status === 'pending' && $isSuccessfulPayment) {
-                $order->load('orderItems');
-
-                if (!$this->reduceStock($order)) {
-                    return response()->json(['message' => 'Insufficient stock'], 409);
-                }
-
-                $order->update(['status' => 'paid']);
-            } elseif ($order->status === 'pending' && in_array($transactionStatus, ['cancel', 'deny', 'expire'], true)) {
-                $order->update(['status' => 'cancelled']);
-            }
-
-            return response()->json(['status' => 'success']);
-        });
+        return match ($result) {
+            'amount_mismatch' => response()->json(['message' => 'Amount mismatch'], 403),
+            // Dicatat di admin_note untuk ditindaklanjuti admin; balas 200 agar Midtrans tidak mengirim ulang terus.
+            'insufficient_stock' => response()->json(['status' => 'success', 'message' => 'Paid but insufficient stock, flagged for admin']),
+            default => response()->json(['status' => 'success']),
+        };
     }
 
-    private function reduceStock(Order $order): bool
+    /**
+     * Cek status pembayaran langsung ke Midtrans (cadangan bila callback tidak masuk).
+     */
+    public function syncPayment(Request $request, Order $order): RedirectResponse
     {
-        $productsToDecrement = [];
+        abort_unless((int) $order->user_id === (int) $request->user()->id, 403);
 
-        foreach ($order->orderItems as $item) {
-            $product = Product::query()->whereKey($item->product_id)->lockForUpdate()->first();
+        return back()->with(...$this->syncMessage($this->orders->syncPaymentFromMidtrans($order)));
+    }
 
-            if (!$product || $product->stock < $item->quantity) {
-                return false;
-            }
+    public function cancel(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless((int) $order->user_id === (int) $request->user()->id, 403);
 
-            $productsToDecrement[] = [$product, $item->quantity];
+        if (!$order->isPending()) {
+            return back()->with('error', 'Pesanan yang sudah dibayar hanya dapat dibatalkan oleh admin. Silakan hubungi Customer Service.');
         }
 
-        foreach ($productsToDecrement as [$product, $quantity]) {
-            $product->decrement('stock', $quantity);
+        // Pastikan pelanggan belum membayar sebelum membatalkan.
+        if ($this->orders->syncPaymentFromMidtrans($order) === 'error') {
+            return back()->with('error', 'Tidak dapat memverifikasi status pembayaran saat ini. Coba lagi beberapa saat atau hubungi Customer Service.');
         }
 
-        return true;
+        if (!$order->refresh()->isPending()) {
+            return back()->with('error', 'Status pesanan sudah berubah ('.$order->statusLabel().'), pembatalan tidak dilakukan.');
+        }
+
+        $this->orders->cancel($order, 'Dibatalkan oleh pelanggan.');
+
+        return back()->with('success', 'Pesanan '.$order->order_code.' berhasil dibatalkan.');
+    }
+
+    public function confirmReceived(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless((int) $order->user_id === (int) $request->user()->id, 403);
+
+        if (!$this->orders->complete($order)) {
+            return back()->with('error', 'Pesanan ini belum dikirim sehingga belum bisa dikonfirmasi diterima.');
+        }
+
+        return back()->with('success', 'Terima kasih! Pesanan telah dikonfirmasi diterima.');
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    public static function syncMessage(string $result): array
+    {
+        return match ($result) {
+            'paid' => ['success', 'Pembayaran terkonfirmasi. Pesanan masuk antrean proses.'],
+            'cancelled' => ['error', 'Transaksi dibatalkan / kedaluwarsa di Midtrans. Pesanan ditandai batal.'],
+            'not_found' => ['error', 'Belum ada transaksi di Midtrans. Pelanggan belum memilih metode pembayaran.'],
+            'insufficient_stock' => ['error', 'Pembayaran diterima tetapi stok tidak cukup. Perlu konfirmasi / refund manual.'],
+            'amount_mismatch' => ['error', 'Nominal pembayaran di Midtrans tidak sesuai dengan total pesanan.'],
+            'error' => ['error', 'Gagal menghubungi Midtrans. Coba beberapa saat lagi.'],
+            default => ['success', 'Status pembayaran belum berubah (masih menunggu pembayaran).'],
+        };
     }
 }

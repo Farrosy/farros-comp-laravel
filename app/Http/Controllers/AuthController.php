@@ -32,7 +32,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
 
             if (Auth::user()->role === 'admin') {
-                return redirect()->intended(route('admin.products.index'))->with('success', 'Selamat datang Admin!');
+                return redirect()->intended(route('admin.dashboard'))->with('success', 'Selamat datang Admin!');
             }
 
             return redirect()->intended('/')->with('success', 'Berhasil masuk ke akun Anda.');

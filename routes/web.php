@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\OrderController;
 use App\Models\Product;
@@ -28,6 +30,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 Route::middleware('auth')->group(function () {
     Route::get('/pesanan-saya', [OrderController::class, 'index'])->name('orders.index');
     Route::post('/checkout/{product}', [OrderController::class, 'checkout'])->name('orders.checkout');
+    Route::post('/pesanan-saya/{order}/cek-pembayaran', [OrderController::class, 'syncPayment'])->name('orders.sync')->middleware('throttle:10,1');
+    Route::post('/pesanan-saya/{order}/batalkan', [OrderController::class, 'cancel'])->name('orders.cancel');
+    Route::post('/pesanan-saya/{order}/diterima', [OrderController::class, 'confirmReceived'])->name('orders.received');
 });
 
 Route::post('/midtrans/callback', [OrderController::class, 'callback'])->name('midtrans.callback');
@@ -39,6 +44,15 @@ Route::get('/panduan-kondisi', function () {
 
 // Rute Khusus Admin
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', AdminDashboardController::class)->name('dashboard');
+
+    Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
+    Route::post('/orders/{order}/sync-payment', [AdminOrderController::class, 'syncPayment'])->name('orders.sync');
+    Route::post('/orders/{order}/ship', [AdminOrderController::class, 'ship'])->name('orders.ship');
+    Route::post('/orders/{order}/complete', [AdminOrderController::class, 'complete'])->name('orders.complete');
+    Route::post('/orders/{order}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
+
     Route::resource('products', AdminProductController::class);
     Route::post('/categories/quick-store', [AdminProductController::class, 'quickStoreCategory'])->name('categories.quick-store');
 });

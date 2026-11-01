@@ -21,17 +21,7 @@
                         <span class="text-muted small">{{ $order->created_at->format('d M Y, H:i') }} WIB</span>
                     </div>
                     <div>
-                        @if($order->status === 'pending')
-                            <span class="badge bg-warning text-dark"><i class="bi bi-clock-history me-1"></i>Menunggu Pembayaran</span>
-                        @elseif($order->status === 'paid')
-                            <span class="badge bg-primary"><i class="bi bi-check-circle me-1"></i>Dibayar (Diproses Gudang)</span>
-                        @elseif($order->status === 'shipped')
-                            <span class="badge bg-info text-dark"><i class="bi bi-truck me-1"></i>Dalam Pengiriman</span>
-                        @elseif($order->status === 'completed')
-                            <span class="badge bg-success"><i class="bi bi-patch-check me-1"></i>Selesai / Diterima</span>
-                        @elseif($order->status === 'cancelled')
-                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Dibatalkan</span>
-                        @endif
+                        @include('partials.order-status-badge')
                     </div>
                 </div>
                 <div class="card-body">
@@ -45,6 +35,22 @@
                         </div>
                     @endforeach
 
+                    @if($order->tracking_number)
+                        <div class="alert alert-info small py-2 mt-3 mb-0 d-flex align-items-center">
+                            <i class="bi bi-truck fs-5 me-2"></i>
+                            <div>
+                                Dikirim via <strong>{{ $order->courier }}</strong> &middot; No. Resi <strong>{{ $order->tracking_number }}</strong>
+                                @if($order->shipped_at)
+                                    <span class="text-muted">({{ $order->shipped_at->format('d M Y H:i') }})</span>
+                                @endif
+                            </div>
+                        </div>
+                    @elseif($order->status === 'paid')
+                        <div class="alert alert-primary small py-2 mt-3 mb-0">
+                            <i class="bi bi-box-seam me-1"></i> Pembayaran diterima. Unit sedang disiapkan tim gudang kami.
+                        </div>
+                    @endif
+
                     <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-2 gap-3">
                         <div class="small text-muted">
                             <i class="bi bi-geo-alt me-1"></i> Alamat Pengiriman: <strong>{{ $order->shipping_address }}</strong>
@@ -55,10 +61,31 @@
                                 <h5 class="fw-bold text-dark mb-0">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</h5>
                             </div>
 
-                            @if($order->status === 'pending' && $order->snap_token)
-                                <button type="button" class="btn btn-warning fw-bold text-dark px-4" data-snap-token="{{ $order->snap_token }}" onclick="payWithMidtrans(this.dataset.snapToken)">
-                                    <i class="bi bi-credit-card me-1"></i> Bayar Sekarang
-                                </button>
+                            @if($order->isPending())
+                                <form action="{{ route('orders.sync', $order) }}" method="POST" id="sync-form-{{ $order->id }}" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Sudah bayar tapi status belum berubah?">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Cek Status
+                                    </button>
+                                </form>
+                                <form action="{{ route('orders.cancel', $order) }}" method="POST" class="d-inline" onsubmit="return confirm('Batalkan pesanan ini?')">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-x-circle me-1"></i> Batalkan
+                                    </button>
+                                </form>
+                                @if($order->snap_token)
+                                    <button type="button" class="btn btn-warning fw-bold text-dark px-4" data-snap-token="{{ $order->snap_token }}" data-sync-form="sync-form-{{ $order->id }}" onclick="payWithMidtrans(this)">
+                                        <i class="bi bi-credit-card me-1"></i> Bayar Sekarang
+                                    </button>
+                                @endif
+                            @elseif($order->canBeCompleted())
+                                <form action="{{ route('orders.received', $order) }}" method="POST" class="d-inline" onsubmit="return confirm('Pastikan unit sudah Anda terima dalam kondisi baik. Lanjutkan?')">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success fw-bold px-4">
+                                        <i class="bi bi-box2-heart me-1"></i> Pesanan Diterima
+                                    </button>
+                                </form>
                             @endif
                         </div>
                     </div>
@@ -83,17 +110,23 @@
 
 <script src="{{ config('services.midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('services.midtrans.client_key') }}"></script>
 <script>
-function payWithMidtrans(snapToken) {
-    window.snap.pay(snapToken, {
-        onSuccess: function () {
-            window.location.reload();
-        },
-        onPending: function () {
-            window.location.reload();
-        },
-        onError: function () {
+function payWithMidtrans(button) {
+    // Setelah popup Snap selesai, cek status langsung ke Midtrans
+    // supaya status pesanan ikut berubah walau callback belum/tidak masuk.
+    const syncForm = document.getElementById(button.dataset.syncForm);
+    const syncStatus = function () {
+        if (syncForm) {
+            syncForm.submit();
+        } else {
             window.location.reload();
         }
+    };
+
+    window.snap.pay(button.dataset.snapToken, {
+        onSuccess: syncStatus,
+        onPending: syncStatus,
+        onError: syncStatus,
+        onClose: function () {}
     });
 }
 </script>

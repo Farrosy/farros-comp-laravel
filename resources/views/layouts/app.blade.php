@@ -8,9 +8,11 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/css/custom.css?v={{ filemtime(public_path('css/custom.css')) }}">
 </head>
-<body class="bg-light">
-    @php($isAuthPage = request()->routeIs('login', 'register'))
-    <header class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+@php($isAuthPage = request()->routeIs('login', 'register'))
+@php($isAdmin = Auth::check() && Auth::user()->role === 'admin')
+@php($isAdminArea = $isAdmin && request()->is('admin*'))
+<body class="bg-light {{ $isAdminArea ? 'admin-area' : '' }}">
+    <header class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top {{ $isAdminArea ? 'navbar-admin' : '' }}">
         <div class="container-fluid px-lg-4">
             @unless($isAuthPage)
             <button class="btn btn-outline-secondary d-md-none me-2 text-white border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-label="Buka menu navigasi">
@@ -24,11 +26,16 @@
                 </div>
                 <div>
                     <div class="brand-title">Farros Comp</div>
-                    <div class="brand-subtitle">Spesialis Laptop Second</div>
+                    <div class="brand-subtitle">{{ $isAdminArea ? 'Panel Administrasi' : 'Spesialis Laptop Second' }}</div>
                 </div>
             </a>
+            @if($isAdminArea)
+                <span class="badge admin-mode-badge d-none d-sm-inline-flex align-items-center">
+                    <i class="bi bi-shield-lock-fill me-1"></i> MODE ADMIN
+                </span>
+            @endif
 
-            @unless($isAuthPage)
+            @unless($isAuthPage || $isAdminArea)
             <div class="d-none d-md-block flex-grow-1 mx-lg-5" style="max-width: 450px;">
                 <form action="{{ route('home') }}" method="GET" class="position-relative">
                     <i class="bi bi-search nav-search-icon"></i>
@@ -58,11 +65,17 @@
                                     <i class="bi bi-receipt me-2"></i> Pesanan Saya
                                 </a>
                             </li>
-                            @if(Auth::user()->role === 'admin')
+                            @if($isAdmin)
                                 <li>
-                                    <a class="dropdown-item py-2" href="{{ route('admin.products.index') }}">
-                                        <i class="bi bi-shield-lock me-2 text-warning"></i> Dashboard Admin
-                                    </a>
+                                    @if($isAdminArea)
+                                        <a class="dropdown-item py-2" href="{{ route('home') }}">
+                                            <i class="bi bi-shop me-2"></i> Lihat Toko (Tampilan Pelanggan)
+                                        </a>
+                                    @else
+                                        <a class="dropdown-item py-2" href="{{ route('admin.dashboard') }}">
+                                            <i class="bi bi-shield-lock me-2 text-warning"></i> Dashboard Admin
+                                        </a>
+                                    @endif
                                 </li>
                             @endif
                             <li>
@@ -95,55 +108,123 @@
     <div class="container-fluid">
         <div class="row">
             @unless($isAuthPage)
-            <div class="sidebar border-end col-md-3 col-lg-2 p-0 bg-white offcanvas-md offcanvas-start" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
+            <div class="sidebar border-end col-md-3 col-lg-2 p-0 offcanvas-md offcanvas-start {{ $isAdminArea ? 'sidebar-admin' : 'bg-white' }}" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
                 <div class="offcanvas-header border-bottom d-md-none p-3">
                     <h5 class="offcanvas-title fw-bold" id="sidebarMenuLabel">
-                        <i class="bi bi-laptop text-warning me-1"></i> Farros Comp
+                        <i class="bi {{ $isAdminArea ? 'bi-shield-lock-fill' : 'bi-laptop' }} text-warning me-1"></i> {{ $isAdminArea ? 'Panel Admin' : 'Farros Comp' }}
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Tutup"></button>
+                    <button type="button" class="btn-close {{ $isAdminArea ? 'btn-close-white' : '' }}" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Tutup"></button>
                 </div>
 
                 <div class="offcanvas-body d-md-flex flex-column p-3 pt-md-4 overflow-y-auto">
-                    <div class="sidebar-heading">Menu Utama</div>
-                    <nav class="nav flex-column gap-1 mb-3">
-                        <a href="{{ route('home') }}" class="sidebar-link {{ request()->routeIs('home') || request()->is('/') ? 'active' : '' }}">
-                            <i class="bi bi-grid-fill me-2"></i>
-                            <span>Katalog Laptop</span>
-                        </a>
-                        @auth
-                            <a href="{{ route('orders.index') }}" class="sidebar-link {{ request()->routeIs('orders.*') ? 'active' : '' }}">
-                                <i class="bi bi-bag-check-fill me-2"></i>
-                                <span>Pesanan Saya</span>
-                            </a>
-                        @endauth
-                        <a href="{{ route('condition.guide') }}" class="sidebar-link {{ request()->routeIs('condition.guide') ? 'active' : '' }}">
-                            <i class="bi bi-patch-question-fill me-2"></i>
-                            <span>Panduan & Garansi</span>
-                        </a>
-                    </nav>
+                    @if($isAdminArea)
+                        {{-- ===== Sidebar khusus admin ===== --}}
+                        <div class="admin-identity mb-3">
+                            <div class="small text-uppercase fw-bold text-warning" style="letter-spacing: .08em;">Panel Admin</div>
+                            <div class="small text-white-50 text-truncate">{{ Auth::user()->name }}</div>
+                        </div>
 
-                    <div class="sidebar-heading">Layanan & Konsultasi</div>
-                    <nav class="nav flex-column gap-1 mb-3">
-                        <a href="https://wa.me/6285691050420?text=Halo%20Tim%20Farros%20Comp%F0%9F%91%8B%E2%98%BA%EF%B8%8F%2C%20salam%20kenal.%0A%0ASaya%20baru%20lihat%20website%20Farros%20Comp%20%F0%9F%92%BB%20dan%20mau%20konsultasi%20santai%20untuk%20cari%20laptop%20second%20yang%20paling%20pas%20dengan%20kebutuhan%20dan%20budget%20saya.%0A%0A%F0%9F%93%84%20Berikut%20Formulir%20Kebutuhan%20Saya%3A%0A%E2%80%A2%20Nama%3A%20%0A%E2%80%A2%20Domisili%3A%20%0A%E2%80%A2%20Kebutuhan%20Utama%3A%20(Coding%20%2F%20Desain%20%2F%20Office%20Harian)%0A%E2%80%A2%20Software%20yang%20dipakai%3A%20%0A%E2%80%A2%20Preferensi%20Brand%3A%20(ThinkPad%20%2F%20Dell%20%2F%20MacBook)%0A%E2%80%A2%20Budget%20Maksimal%3A%20Rp%20%0A%E2%80%A2%20Status%20Pembelian%3A%20Segera%20%2F%20Survei%0A%0ABoleh%20tolong%20dibantu%20rekomendasi%20unit%20laptop%20yang%20cocok%20ya%20Mas%2FMbak.%20Terima%20kasih!%F0%9F%99%8F%F0%9F%98%8A" target="_blank" rel="noopener noreferrer" class="sidebar-link text-success">
+                        <div class="sidebar-heading">Ringkasan</div>
+                        <nav class="nav flex-column gap-1 mb-3">
+                            <a href="{{ route('admin.dashboard') }}" class="sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </nav>
+
+                        <div class="sidebar-heading">Transaksi</div>
+                        <nav class="nav flex-column gap-1 mb-3">
+                            <a href="{{ route('admin.orders.index') }}" class="sidebar-link {{ request()->routeIs('admin.orders.*') && request('status') !== 'paid' ? 'active' : '' }}">
+                                <i class="bi bi-receipt-cutoff me-2"></i>
+                                <span>Semua Pesanan</span>
+                            </a>
+                            <a href="{{ route('admin.orders.index', ['status' => 'paid']) }}" class="sidebar-link {{ request()->routeIs('admin.orders.index') && request('status') === 'paid' ? 'active' : '' }}">
+                                <i class="bi bi-box-seam me-2"></i>
+                                <span>Perlu Diproses</span>
+                                @if($adminOrdersToProcess > 0)
+                                    <span class="badge rounded-pill bg-danger ms-auto">{{ $adminOrdersToProcess }}</span>
+                                @endif
+                            </a>
+                        </nav>
+
+                        <div class="sidebar-heading">Inventaris</div>
+                        <nav class="nav flex-column gap-1 mb-3">
+                            <a href="{{ route('admin.products.index') }}" class="sidebar-link {{ request()->routeIs('admin.products.*') && !request()->routeIs('admin.products.create') ? 'active' : '' }}">
+                                <i class="bi bi-laptop me-2"></i>
+                                <span>Kelola Produk</span>
+                            </a>
+                            <a href="{{ route('admin.products.create') }}" class="sidebar-link {{ request()->routeIs('admin.products.create') ? 'active' : '' }}">
+                                <i class="bi bi-plus-circle me-2"></i>
+                                <span>Tambah Unit</span>
+                            </a>
+                        </nav>
+
+                        <div class="mt-md-auto pt-3 border-top border-secondary border-opacity-25">
+                            <a href="{{ route('home') }}" class="sidebar-link">
+                                <i class="bi bi-arrow-left-circle me-2"></i>
+                                <span>Kembali ke Toko</span>
+                            </a>
+                        </div>
+                    @else
+                        {{-- ===== Sidebar pelanggan / publik ===== --}}
+                        <div class="sidebar-heading">Menu Utama</div>
+                        <nav class="nav flex-column gap-1 mb-3">
+                            <a href="{{ route('home') }}" class="sidebar-link {{ request()->routeIs('home') || request()->is('/') ? 'active' : '' }}">
+                                <i class="bi bi-grid-fill me-2"></i>
+                                <span>Katalog Laptop</span>
+                            </a>
+                            @auth
+                                <a href="{{ route('orders.index') }}" class="sidebar-link {{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                                    <i class="bi bi-bag-check-fill me-2"></i>
+                                    <span>Pesanan Saya</span>
+                                </a>
+                            @endauth
+                            <a href="{{ route('condition.guide') }}" class="sidebar-link {{ request()->routeIs('condition.guide') ? 'active' : '' }}">
+                                <i class="bi bi-patch-question-fill me-2"></i>
+                                <span>Panduan & Garansi</span>
+                            </a>
+                        </nav>
+
+                        <div class="sidebar-heading">Layanan & Konsultasi</div>
+                        <nav class="nav flex-column gap-1 mb-3">
+                            <a href="https://wa.me/6285691050420?text=Halo%20Tim%20Farros%20Comp%F0%9F%91%8B%E2%98%BA%EF%B8%8F%2C%20salam%20kenal.%0A%0ASaya%20baru%20lihat%20website%20Farros%20Comp%20%F0%9F%92%BB%20dan%20mau%20konsultasi%20santai%20untuk%20cari%20laptop%20second%20yang%20paling%20pas%20dengan%20kebutuhan%20dan%20budget%20saya.%0A%0A%F0%9F%93%84%20Berikut%20Formulir%20Kebutuhan%20Saya%3A%0A%E2%80%A2%20Nama%3A%20%0A%E2%80%A2%20Domisili%3A%20%0A%E2%80%A2%20Kebutuhan%20Utama%3A%20(Coding%20%2F%20Desain%20%2F%20Office%20Harian)%0A%E2%80%A2%20Software%20yang%20dipakai%3A%20%0A%E2%80%A2%20Preferensi%20Brand%3A%20(ThinkPad%20%2F%20Dell%20%2F%20MacBook)%0A%E2%80%A2%20Budget%20Maksimal%3A%20Rp%20%0A%E2%80%A2%20Status%20Pembelian%3A%20Segera%20%2F%20Survei%0A%0ABoleh%20tolong%20dibantu%20rekomendasi%20unit%20laptop%20yang%20cocok%20ya%20Mas%2FMbak.%20Terima%20kasih!%F0%9F%99%8F%F0%9F%98%8A" target="_blank" rel="noopener noreferrer" class="sidebar-link text-success">
                             <i class="bi bi-whatsapp text-success me-2"></i>
                             <span>Konsultasi WA CS</span>
                         </a>
-                    </nav>
-
-                    @if(Auth::check() && Auth::user()->role === 'admin')
-                        <div class="sidebar-heading">Administrasi</div>
-                        <nav class="nav flex-column gap-1">
-                            <a href="{{ route('admin.products.index') }}" class="sidebar-link {{ request()->is('admin*') ? 'active' : '' }}">
-                                <i class="bi bi-shield-lock-fill me-2"></i>
-                                <span>Panel Admin</span>
-                            </a>
                         </nav>
+
+                        @if($isAdmin)
+                            <a href="{{ route('admin.dashboard') }}" class="admin-switch-card mt-md-auto">
+                                <i class="bi bi-shield-lock-fill fs-4 me-2"></i>
+                                <div>
+                                    <div class="fw-bold">Masuk Panel Admin</div>
+                                    <div class="small opacity-75">
+                                        @if($adminOrdersToProcess > 0)
+                                            {{ $adminOrdersToProcess }} pesanan perlu diproses
+                                        @else
+                                            Kelola pesanan & produk
+                                        @endif
+                                    </div>
+                                </div>
+                            </a>
+                        @endif
                     @endif
                 </div>
             </div>
             @endunless
 
             <main class="{{ $isAuthPage ? 'col-12 px-3 px-md-4 py-4 py-lg-5' : 'col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4' }} min-vh-100">
+                @if($isAdminArea)
+                    <div class="admin-context-bar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-shield-lock-fill me-2"></i>
+                            <span>Anda sedang berada di <strong>Panel Admin</strong>. Perubahan di sini langsung berdampak ke toko & pelanggan.</span>
+                        </div>
+                        <a href="{{ route('home') }}" class="btn btn-sm btn-outline-dark">
+                            <i class="bi bi-eye me-1"></i> Lihat sebagai Pelanggan
+                        </a>
+                    </div>
+                @endif
                 @yield('content')
             </main>
         </div>

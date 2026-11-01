@@ -468,3 +468,160 @@ body {
         transition: none;
     }
 }
+
+/* ===== Area Admin: dibedakan jelas dari tampilan pelanggan ===== */
+.admin-area {
+    background-color: #eef2f7 !important;
+}
+
+.navbar-admin {
+    background: linear-gradient(90deg, #0f172a 0%, #1e1b4b 100%) !important;
+    border-bottom: 3px solid #f59e0b;
+}
+
+.admin-mode-badge {
+    background-color: #f59e0b;
+    color: #0f172a;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+}
+
+.sidebar-admin {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+}
+
+.sidebar-admin .offcanvas-header {
+    color: #fff;
+    border-color: #1f2937 !important;
+}
+
+.sidebar-admin .sidebar-heading {
+    color: #6b7280;
+}
+
+.sidebar-admin .sidebar-link {
+    color: #cbd5e1;
+}
+
+.sidebar-admin .sidebar-link i {
+    color: #94a3b8;
+}
+
+.sidebar-admin .sidebar-link:hover {
+    background-color: #1f2937;
+    color: #fff;
+}
+
+.sidebar-admin .sidebar-link:hover i {
+    color: #fff;
+}
+
+.sidebar-admin .sidebar-link.active {
+    background-color: #f59e0b !important;
+    color: #111827 !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.sidebar-admin .sidebar-link.active i {
+    color: #111827 !important;
+}
+
+.admin-identity {
+    padding: 0.75rem 1rem;
+    background-color: #1f2937;
+    border-left: 3px solid #f59e0b;
+    border-radius: 8px;
+}
+
+.admin-context-bar {
+    background-color: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #78350f;
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    font-size: 0.875rem;
+}
+
+.admin-switch-card {
+    display: flex;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0f172a, #1e1b4b);
+    color: #fbbf24;
+    text-decoration: none;
+    border: 1px solid #f59e0b;
+    transition: transform 0.15s ease;
+}
+
+.admin-switch-card:hover {
+    color: #fde68a;
+    transform: translateY(-1px);
+}
+
+.stat-card {
+    border: 0;
+    border-radius: 12px;
+    border-left: 4px solid var(--stat-color, #0f172a);
+}
+
+.stat-card .stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    background-color: color-mix(in srgb, var(--stat-color, #0f172a) 12%, white);
+    color: var(--stat-color, #0f172a);
+}
+
+.order-timeline {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.order-timeline li {
+    position: relative;
+    padding: 0 0 1rem 1.75rem;
+    color: #94a3b8;
+}
+
+.order-timeline li::before {
+    content: '';
+    position: absolute;
+    left: 0.35rem;
+    top: 0.35rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background-color: #cbd5e1;
+}
+
+.order-timeline li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 0.67rem;
+    top: 1.1rem;
+    bottom: 0;
+    width: 2px;
+    background-color: #e2e8f0;
+}
+
+.order-timeline li.done {
+    color: #0f172a;
+}
+
+.order-timeline li.done::before {
+    background-color: #16a34a;
+}
+
+.order-timeline li.cancelled::before {
+    background-color: #dc2626;
+}
