@@ -46,6 +46,90 @@ Farros Comp adalah aplikasi web untuk menampilkan katalog laptop second dan meng
 - Panduan kondisi unit dan garansi toko.
 - Tautan konsultasi Customer Service melalui WhatsApp.
 
+## ERD
+
+Diagram berikut menunjukkan relasi inti katalog dan transaksi. Tabel infrastruktur Laravel seperti cache, jobs, sessions, dan password reset tidak ditampilkan.
+
+```mermaid
+erDiagram
+    CATEGORIES ||--o{ PRODUCTS : mengelompokkan
+    USERS ||--o{ ORDERS : membuat
+    ORDERS ||--o{ ORDER_ITEMS : berisi
+    PRODUCTS ||--o{ ORDER_ITEMS : tercatat_dalam
+
+    CATEGORIES {
+        bigint id PK
+        string name
+        string slug UK
+        text description "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PRODUCTS {
+        bigint id PK
+        bigint category_id FK
+        string name
+        string processor
+        int ram_gb
+        string storage
+        string battery_condition
+        string physical_condition
+        bigint price "unsigned"
+        int stock
+        string image "nullable"
+        text description "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    USERS {
+        bigint id PK
+        string name
+        string email UK
+        string password "hashed"
+        string role
+        string phone "nullable"
+        text address "nullable"
+        timestamp email_verified_at "nullable"
+        string remember_token "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ORDERS {
+        bigint id PK
+        bigint user_id FK
+        string order_code UK
+        decimal total_amount
+        text shipping_address
+        enum status
+        string payment_receipt "nullable"
+        string snap_token "nullable"
+        string payment_type "nullable"
+        string courier "nullable"
+        string tracking_number "nullable"
+        text admin_note "nullable"
+        timestamp paid_at "nullable"
+        timestamp shipped_at "nullable"
+        timestamp completed_at "nullable"
+        timestamp cancelled_at "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ORDER_ITEMS {
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK
+        int quantity
+        decimal unit_price
+        decimal subtotal
+        timestamp created_at
+        timestamp updated_at
+    }
+```
+
 ## Teknologi
 
 - **Backend:** Laravel 11, PHP.
