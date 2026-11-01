@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductSeeder extends Seeder
@@ -283,10 +284,41 @@ class ProductSeeder extends Seeder
             $category = $categories[$product['category']]['model'];
             unset($product['category']);
 
-            Product::firstOrCreate(
+            $image = $this->seedImage($product['name']);
+
+            $model = Product::firstOrCreate(
                 ['name' => $product['name']],
-                ['category_id' => $category->id, ...$product]
+                ['category_id' => $category->id, ...$product, 'image' => $image]
             );
+
+            // Fill the image for products seeded earlier without one, without
+            // overwriting a photo an admin uploaded later.
+            if (! $model->image && $image) {
+                $model->update(['image' => $image]);
+            }
         }
+    }
+
+    /**
+     * Copy the bundled illustration for a product into the public disk and
+     * return its storage path (e.g. "products/seed/thinkpad-t480.png").
+     */
+    private function seedImage(string $name): ?string
+    {
+        $file = Str::slug($name) . '.png';
+        $source = database_path('seeders/images/products/' . $file);
+
+        if (! is_file($source)) {
+            return null;
+        }
+
+        $target = 'products/seed/' . $file;
+        $disk = Storage::disk('public');
+
+        if (! $disk->exists($target)) {
+            $disk->put($target, file_get_contents($source));
+        }
+
+        return $target;
     }
 }

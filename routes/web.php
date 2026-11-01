@@ -12,12 +12,14 @@ Route::get('/', function () {
     return view('shop.index', compact('products'));
 })->name('home');
 
+Route::view('/kebijakan-privasi', 'pages.privacy')->name('privacy.notice');
+
 // Rute Tamu (Hanya yang belum login)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,10');
 });
 
 // Rute Keluar (Harus sudah login)

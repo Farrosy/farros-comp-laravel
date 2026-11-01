@@ -9,11 +9,14 @@
     <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 </head>
 <body class="bg-light">
+    @php($isAuthPage = request()->routeIs('login', 'register'))
     <header class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
         <div class="container-fluid px-lg-4">
+            @unless($isAuthPage)
             <button class="btn btn-outline-secondary d-md-none me-2 text-white border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-label="Buka menu navigasi">
                 <i class="bi bi-list fs-3"></i>
             </button>
+            @endunless
 
             <a class="navbar-brand d-flex align-items-center text-decoration-none me-4" href="{{ route('home') }}">
                 <div class="brand-icon-box me-2">
@@ -25,13 +28,16 @@
                 </div>
             </a>
 
+            @unless($isAuthPage)
             <div class="d-none d-md-block flex-grow-1 mx-lg-5" style="max-width: 450px;">
                 <form action="{{ route('home') }}" method="GET" class="position-relative">
                     <i class="bi bi-search nav-search-icon"></i>
                     <input type="text" name="search" class="form-control nav-search-input py-2" placeholder="Cari ThinkPad, MacBook, Core i7, RAM 16GB..." value="{{ request('search') }}">
                 </form>
             </div>
+            @endunless
 
+            @unless($isAuthPage)
             <ul class="navbar-nav ms-auto align-items-center flex-row gap-2">
                 @auth
                     <li class="nav-item dropdown">
@@ -82,11 +88,13 @@
                     </li>
                 @endauth
             </ul>
+            @endunless
         </div>
     </header>
 
     <div class="container-fluid">
         <div class="row">
+            @unless($isAuthPage)
             <div class="sidebar border-end col-md-3 col-lg-2 p-0 bg-white offcanvas-md offcanvas-start" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
                 <div class="offcanvas-header border-bottom d-md-none p-3">
                     <h5 class="offcanvas-title fw-bold" id="sidebarMenuLabel">
@@ -133,8 +141,9 @@
                     @endif
                 </div>
             </div>
+            @endunless
 
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4 min-vh-100">
+            <main class="{{ $isAuthPage ? 'col-12 px-3 px-md-4 py-4 py-lg-5' : 'col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4' }} min-vh-100">
                 @yield('content')
             </main>
         </div>

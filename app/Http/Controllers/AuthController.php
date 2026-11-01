@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
@@ -16,8 +17,14 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $email = $request->input('email');
+
+        $request->merge([
+            'email' => is_string($email) ? mb_strtolower(trim($email)) : '',
+        ]);
+
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', 'max:255'],
             'password' => ['required'],
         ]);
 
@@ -32,7 +39,7 @@ class AuthController extends Controller
         }
 
         return back()->withErrors([
-            'email' => 'Email atau kata sandi yang Anda masukkan salah.',
+            'login' => 'Email atau kata sandi yang Anda masukkan salah. Periksa kembali lalu coba lagi.',
         ])->onlyInput('email');
     }
 
@@ -43,12 +50,53 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        $name = $request->input('name');
+        $email = $request->input('email');
+        $phone = $request->input('phone');
+        $address = $request->input('address');
+
+        $phone = preg_replace('/[\s().-]+/', '', is_string($phone) ? $phone : '');
+        $phone = preg_replace('/^\+?62/', '0', $phone);
+
+        $request->merge([
+            'name' => is_string($name) ? trim($name) : '',
+            'email' => is_string($email) ? mb_strtolower(trim($email)) : '',
+            'phone' => $phone,
+            'address' => is_string($address) ? trim($address) : '',
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'phone' => ['required', 'string', 'max:20'],
-            'address' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'max:13', 'regex:/^08[1-9][0-9]{7,10}$/'],
+            'address' => ['required', 'string', 'max:2000'],
+            'password' => [
+                'required',
+                'string',
+                Password::min(15)->max(72),
+                function ($attribute, $value, $fail) {
+                    if (is_string($value) && strlen($value) > 72) {
+                            $fail('Kata sandi terlalu panjang. Gunakan maksimal 72 karakter.');
+                    }
+                },
+            ],
+            'password_confirmation' => ['required', 'same:password'],
+            'privacy_notice' => ['accepted'],
+        ], [
+            'name.required' => 'Nama lengkap wajib diisi.',
+            'name.max' => 'Nama lengkap maksimal 255 karakter.',
+            'email.required' => 'Alamat email wajib diisi.',
+            'email.email' => 'Masukkan alamat email yang valid.',
+            'email.max' => 'Alamat email maksimal 255 karakter.',
+            'email.unique' => 'Email ini sudah terdaftar. Silakan masuk dengan akun Anda.',
+            'phone.required' => 'Nomor WhatsApp/HP wajib diisi.',
+            'phone.regex' => 'Masukkan nomor HP Indonesia yang valid, misalnya 081234567890 atau +62 812 3456 7890.',
+            'address.required' => 'Alamat pengiriman wajib diisi.',
+            'address.max' => 'Alamat maksimal 2.000 karakter.',
+            'password.min' => 'Gunakan kata sandi minimal 15 karakter.',
+            'password.max' => 'Kata sandi maksimal 72 karakter.',
+            'password_confirmation.same' => 'Konfirmasi kata sandi belum cocok.',
+            'privacy_notice.accepted' => 'Baca dan setujui pemberitahuan privasi untuk melanjutkan.',
         ]);
 
         $user = User::create([
@@ -63,7 +111,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect('/')->with('success', 'Registrasi berhasil! Selamat datang di Farros Comp.');
+        return redirect()->route('home')->with('success', 'Akun berhasil dibuat. Selamat datang di Farros Comp!');
     }
 
     public function logout(Request $request)
