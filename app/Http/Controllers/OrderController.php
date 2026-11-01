@@ -134,6 +134,12 @@ class OrderController extends Controller
             return response()->json(['message' => 'Invalid signature'], 403);
         }
 
+        // Midtrans's dashboard test notification uses a synthetic order ID.
+        // Acknowledge it after signature verification without touching orders or stock.
+        if (str_starts_with($payload['order_id'], 'payment_notif_test_')) {
+            return response()->json(['status' => 'success', 'message' => 'Test notification received']);
+        }
+
         return DB::transaction(function () use ($payload): JsonResponse {
             $order = Order::query()
                 ->where('order_code', $payload['order_id'])
