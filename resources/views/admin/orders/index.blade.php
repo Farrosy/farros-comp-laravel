@@ -17,9 +17,9 @@
     </li>
     @foreach(\App\Models\Order::STATUS_META as $key => $meta)
         <li class="nav-item">
-            <a class="nav-link text-nowrap {{ $activeStatus === $key ? 'active bg-dark' : 'text-dark' }}" href="{{ route('admin.orders.index', array_merge(request()->except('page'), ['status' => $key])) }}">
+            <a class="nav-link text-nowrap {{ $activeStatus === $key ? 'active '.$meta['badge'] : 'text-dark' }}" href="{{ route('admin.orders.index', array_merge(request()->except('page'), ['status' => $key])) }}" @if($activeStatus === $key) aria-current="page" @endif>
                 <i class="bi {{ $meta['icon'] }} me-1"></i>{{ $meta['label'] }}
-                <span class="badge {{ $key === 'paid' && ($statusCounts[$key] ?? 0) > 0 ? 'bg-danger' : 'bg-secondary' }} ms-1">{{ $statusCounts[$key] ?? 0 }}</span>
+                <span class="badge {{ $meta['badge'] }} ms-1">{{ $statusCounts[$key] ?? 0 }}</span>
             </a>
         </li>
     @endforeach
